@@ -1,0 +1,1 @@
+CREATE INDEX code_date_range_id ON code(valid_from, valid_till);

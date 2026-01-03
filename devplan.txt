@@ -1,0 +1,7 @@
+ - Batching for startup job instead of getAll
+ - Use redis as alternative repository
+ - Deploy to server
+ - Use nginx as reverse proxy
+ - Open in public
+ - Blue green deployment
+ - Several instances support

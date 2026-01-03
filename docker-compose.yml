@@ -1,0 +1,117 @@
+version: '3.8'
+
+networks:
+  totp-network:
+
+services:
+  totp:
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx256m -XX:+UseZGC -XX:+AlwaysActAsServerClassMachine -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=5000 -Dcom.sun.management.jmxremote.rmi.port=5000 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote.local.only=false"
+      SERVER_PORT: 8080
+      SERVER_THREAD_COUNT: 20
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://totp-postgres:5432/totp"
+      SPRING_DATASOURCE_USERNAME: "user"
+      SPRING_DATASOURCE_PASSWORD: "password"
+    image: totp:latest
+    restart: always
+    container_name: totp
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    ports:
+      - "5000:5000"
+      - "8080:8080"
+      - "1099:1099"
+    depends_on:
+      - totp-postgres
+    networks:
+      - totp-network
+
+  totp-postgres:
+    image: postgres:16-alpine
+    restart: always
+    container_name: totp-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: totp
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./shared/postgresql/data:/var/lib/postgresql/data
+    networks:
+      - totp-network
+
+  totp-postgres-prometheus-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    container_name: totp-postgres-prometheus-exporter
+    environment:
+      DATA_SOURCE_URI: "totp-postgres:5432/totp?sslmode=disable"
+      DATA_SOURCE_USER: "user"
+      DATA_SOURCE_PASS: "password"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    depends_on:
+      - totp-postgres
+    networks:
+      - totp-network
+
+  totp-pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: always
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: password
+    ports:
+      - "8081:80"
+    volumes:
+      - ./shared/pgadmin:/var/lib/pgadmin
+    depends_on:
+      - totp-postgres
+    networks:
+      - totp-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: totp-prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 1024M
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./shared/prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      totp-network:
+
+  grafana:
+    build: './infra/grafana'
+    container_name: totp-grafana
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 1024M
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./shared/grafana:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      totp-network:

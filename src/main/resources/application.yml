@@ -1,0 +1,29 @@
+management:
+  default:
+    metrics:
+      export:
+        enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus, metrics
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+  observations:
+    annotations:
+      enabled: true
+
+spring:
+#DB PROPERTIES FROM DOCKER COMPOSE
+  datasource:
+    hikari:
+      maximum-pool-size: 32
+  liquibase:
+    change-log: "classpath:db/changelog/changelog.yaml"
+
+
